@@ -1,4 +1,5 @@
 const axios = require('axios');
+const fs = require('fs'); // Required to write to GitHub Actions output file
 const config = require('./config');
 
 // Create an Axios instance for the ServiceNow Change Management API
@@ -35,13 +36,16 @@ const generatePlannedDates = () => {
 
 /**
  * Creates a new change request.
+ * Optionally overrides default payload fields with values passed in.
+ * @param {Object} [overrides={}] - Object containing fields to override.
  * @returns {Promise<string|null>} Returns the sys_id if successful, or null on failure.
  */
-const createChangeRequest = async () => {
+const createChangeRequest = async (overrides = {}) => {
   const { plannedStartDate, plannedEndDate } = generatePlannedDates();
   const runTime = new Date().toISOString();
 
-  const changeRequestData = {
+  // Default payload values
+  const defaultData = {
     short_description: `Node.js Sample Change Request at ${runTime}`,
     description: `This change request was submitted via the Change Management API at ${runTime}.`,
     assignment_group: 'Help Desk',
@@ -54,6 +58,9 @@ const createChangeRequest = async () => {
     planned_start_date: plannedStartDate,
     planned_end_date: plannedEndDate,
   };
+
+  // Merge defaultData with any provided overrides
+  const changeRequestData = { ...defaultData, ...overrides };
 
   try {
     const response = await serviceNowClient.post('', changeRequestData);
@@ -90,15 +97,41 @@ const submitChangeForAssessment = async (sysId, stateValue = config.STATE_ASSESS
 
 /**
  * Main function to create a change request and then submit it for assessment.
+ * It then logs a direct URL to view the change in the browser and writes this URL
+ * to GitHub Actions output if running in that environment.
  */
 const main = async () => {
+  let overrides = {};
+  // Process command-line arguments to override default values
+  if (process.argv.length > 2) {
+    try {
+      overrides = JSON.parse(process.argv[2]);
+      console.info('Using provided override values:', overrides);
+    } catch (err) {
+      console.error('Invalid JSON input. Please provide valid JSON string as argument.');
+      process.exit(1);
+    }
+  }
+
   try {
-    const sysId = await createChangeRequest();
+    const sysId = await createChangeRequest(overrides);
     if (!sysId) {
       console.error('Change request creation failed. Aborting.');
       return;
     }
-    await submitChangeForAssessment(sysId);
+    const assessmentSuccess = await submitChangeForAssessment(sysId);
+    if (assessmentSuccess) {
+      // Construct a direct URL to view the change request
+      const viewUrl = `https://${config.INSTANCE}/change_request.do?sys_id=${sysId}`;
+      console.info('View the change request here:', viewUrl);
+      // After logging the URL, also print it with a marker for GitHub Actions.
+      console.log(`SYSID=${sysId}`);
+      // If running in GitHub Actions, write the output variable to GITHUB_OUTPUT
+      if (process.env.GITHUB_OUTPUT) {
+        fs.appendFileSync(process.env.GITHUB_OUTPUT, `view_url=${viewUrl}\n`);
+        console.info('Output written to GITHUB_OUTPUT.');
+      }
+    }
   } catch (err) {
     console.error('Unexpected error:', err);
   }

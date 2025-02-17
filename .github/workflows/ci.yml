@@ -1,0 +1,63 @@
+name: Run Change Request App on PR
+
+permissions:
+  issues: write
+  pull-requests: write
+
+on:
+  pull_request:
+
+jobs:
+  run-app:
+    runs-on: ubuntu-latest
+    env:
+      INSTANCE: ${{ secrets.INSTANCE }}
+      SN_API_KEY: ${{ secrets.SN_API_KEY }}
+      STATE_ASSESS: ${{ secrets.STATE_ASSESS }}
+      GITHUB_PR_TITLE: ${{ github.event.pull_request.title }}
+      GITHUB_PR_BODY: ${{ github.event.pull_request.body }}
+      GITHUB_RUN_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure Environment Variables
+        run: |
+          echo "INSTANCE=$INSTANCE" >> .env
+          echo "SN_API_KEY=$SN_API_KEY" >> .env
+          echo "STATE_ASSESS=$STATE_ASSESS" >> .env
+
+      - name: Run Change Request Application with Overrides
+        id: run_change
+        run: |
+          echo "Building override JSON..."
+          OVERRIDE=$(jq -n \
+            --arg title "$GITHUB_PR_TITLE" \
+            --arg desc "$GITHUB_PR_BODY" \
+            --arg link "$GITHUB_RUN_LINK" \
+            '{description: $desc, short_description: $title, implementation_plan: $link}')
+          echo "Override: $OVERRIDE"
+          # Run the node script and capture its output.
+          output=$(node index.js "$OVERRIDE")
+          echo "$output"
+          # Extract the change URL from the output (must be echoed as "CHANGE_URL=...")
+          SYSID=$(echo "$output" | grep 'SYSID=' | cut -d'=' -f2)
+          echo "sysid=$SYSID" >> $GITHUB_OUTPUT
+
+      - name: Post Comment with Change Request URL
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            A new ServiceNow Change Request has been created.
+            
+            View it [here](https://dev182150.service-now.com/change_request.do?sys_id=${{ steps.run_change.outputs.sysid }}).

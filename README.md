@@ -52,7 +52,7 @@ If you are using VS Code with DevContainers:
 To run the application, execute:
 
 ```bash
-node submitChangeRequest.js
+node index.js
 ```
 
 This will:
@@ -64,6 +64,7 @@ Creating a ServiceNow Dev Instance
 1. Sign up for a free developer account.
 1. Once logged in, request a new personal developer instance.
 1. Use the instance URL (e.g., dev182150.service-now.com) and set up API credentials as required.
+1. Follow the [API Key guide](https://www.servicenow.com/community/developer-advocate-blog/inbound-rest-api-keys/ba-p/2854924)
 
 What This Application Does
 - Creates a Change Request:
