@@ -1,4 +1,5 @@
 const axios = require('axios');
+const fs = require('fs'); // Required to write to GitHub Actions output file
 const config = require('./config');
 
 // Create an Axios instance for the ServiceNow Change Management API
@@ -96,6 +97,8 @@ const submitChangeForAssessment = async (sysId, stateValue = config.STATE_ASSESS
 
 /**
  * Main function to create a change request and then submit it for assessment.
+ * It then logs a direct URL to view the change in the browser and writes this URL
+ * to GitHub Actions output if running in that environment.
  */
 const main = async () => {
   let overrides = {};
@@ -116,7 +119,19 @@ const main = async () => {
       console.error('Change request creation failed. Aborting.');
       return;
     }
-    await submitChangeForAssessment(sysId);
+    const assessmentSuccess = await submitChangeForAssessment(sysId);
+    if (assessmentSuccess) {
+      // Construct a direct URL to view the change request
+      const viewUrl = `https://${config.INSTANCE}/change_request.do?sys_id=${sysId}`;
+      console.info('View the change request here:', viewUrl);
+      // After logging the URL, also print it with a marker for GitHub Actions.
+      console.log(`CHANGE_URL=https://${config.INSTANCE}/change_request.do?sys_id=${sysId}`);
+      // If running in GitHub Actions, write the output variable to GITHUB_OUTPUT
+      if (process.env.GITHUB_OUTPUT) {
+        fs.appendFileSync(process.env.GITHUB_OUTPUT, `view_url=${viewUrl}\n`);
+        console.info('Output written to GITHUB_OUTPUT.');
+      }
+    }
   } catch (err) {
     console.error('Unexpected error:', err);
   }
