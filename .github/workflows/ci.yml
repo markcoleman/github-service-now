@@ -17,8 +17,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '16'
-      - name: List repository files
-        run: ls -al
+
       - name: Install dependencies
         run: npm install
 
@@ -28,4 +27,4 @@ jobs:
           echo "SN_API_KEY=$SN_API_KEY" >> .env
 
       - name: Run Change Request Application
-        run: node submitChangeRequest.js
+        run: node index.js
