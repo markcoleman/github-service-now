@@ -35,13 +35,16 @@ const generatePlannedDates = () => {
 
 /**
  * Creates a new change request.
+ * Optionally overrides default payload fields with values passed in.
+ * @param {Object} [overrides={}] - Object containing fields to override.
  * @returns {Promise<string|null>} Returns the sys_id if successful, or null on failure.
  */
-const createChangeRequest = async () => {
+const createChangeRequest = async (overrides = {}) => {
   const { plannedStartDate, plannedEndDate } = generatePlannedDates();
   const runTime = new Date().toISOString();
 
-  const changeRequestData = {
+  // Default payload values
+  const defaultData = {
     short_description: `Node.js Sample Change Request at ${runTime}`,
     description: `This change request was submitted via the Change Management API at ${runTime}.`,
     assignment_group: 'Help Desk',
@@ -54,6 +57,9 @@ const createChangeRequest = async () => {
     planned_start_date: plannedStartDate,
     planned_end_date: plannedEndDate,
   };
+
+  // Merge defaultData with any provided overrides
+  const changeRequestData = { ...defaultData, ...overrides };
 
   try {
     const response = await serviceNowClient.post('', changeRequestData);
@@ -92,8 +98,20 @@ const submitChangeForAssessment = async (sysId, stateValue = config.STATE_ASSESS
  * Main function to create a change request and then submit it for assessment.
  */
 const main = async () => {
+  let overrides = {};
+  // Process command-line arguments to override default values
+  if (process.argv.length > 2) {
+    try {
+      overrides = JSON.parse(process.argv[2]);
+      console.info('Using provided override values:', overrides);
+    } catch (err) {
+      console.error('Invalid JSON input. Please provide valid JSON string as argument.');
+      process.exit(1);
+    }
+  }
+
   try {
-    const sysId = await createChangeRequest();
+    const sysId = await createChangeRequest(overrides);
     if (!sysId) {
       console.error('Change request creation failed. Aborting.');
       return;

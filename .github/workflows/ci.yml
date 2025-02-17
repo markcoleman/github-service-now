@@ -7,8 +7,9 @@ jobs:
   run-app:
     runs-on: ubuntu-latest
     env:
-      INSTANCE: ${{ vars.INSTANCE }}
+      INSTANCE: ${{ secrets.INSTANCE }}
       SN_API_KEY: ${{ secrets.SN_API_KEY }}
+      STATE_ASSESS: ${{ secrets.STATE_ASSESS }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -25,6 +26,15 @@ jobs:
         run: |
           echo "INSTANCE=$INSTANCE" >> .env
           echo "SN_API_KEY=$SN_API_KEY" >> .env
+          echo "STATE_ASSESS=$STATE_ASSESS" >> .env
 
-      - name: Run Change Request Application
-        run: node index.js
+      - name: Run Change Request Application with Overrides
+        env:
+          GITHUB_PR_BODY: ${{ github.event.pull_request.body }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          echo "Building override JSON..."
+          OVERRIDE=$(jq -n --arg desc "$GITHUB_PR_BODY" --arg sha "$GITHUB_SHA" --arg branch "$GITHUB_HEAD_REF" '{description: $desc, short_description: $sha, implementation_plan: $branch}')
+          echo "Override: $OVERRIDE"
+          node index.js "$OVERRIDE"
