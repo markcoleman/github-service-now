@@ -125,7 +125,7 @@ const main = async () => {
       const viewUrl = `https://${config.INSTANCE}/change_request.do?sys_id=${sysId}`;
       console.info('View the change request here:', viewUrl);
       // After logging the URL, also print it with a marker for GitHub Actions.
-      console.log(`CHANGE_URL=https://${config.INSTANCE}/change_request.do?sys_id=${sysId}`);
+      console.log(`CHANGE_URL=${viewUrl}`);
       // If running in GitHub Actions, write the output variable to GITHUB_OUTPUT
       if (process.env.GITHUB_OUTPUT) {
         fs.appendFileSync(process.env.GITHUB_OUTPUT, `view_url=${viewUrl}\n`);
