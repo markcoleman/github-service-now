@@ -1,39 +1,46 @@
-require('dotenv').config(); // Load environment variables from .env file
 const axios = require('axios');
+const config = require('./config');
 
-// Create an Axios instance for your ServiceNow Change Management API
+// Create an Axios instance for the ServiceNow Change Management API
 const serviceNowClient = axios.create({
-  baseURL: 'https://dev182150.service-now.com/api/sn_chg_rest/change',
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'x-sn-apikey': process.env.SN_API_KEY,
-  }
+  baseURL: config.BASE_URL,
+  headers: config.HEADERS,
 });
 
-// Helper function to format a Date as "YYYY-MM-DD HH:mm:ss"
-function formatDate(date) {
-  const year = date.getFullYear();
-  const month = ('0' + (date.getMonth() + 1)).slice(-2);
-  const day = ('0' + date.getDate()).slice(-2);
-  const hours = ('0' + date.getHours()).slice(-2);
-  const minutes = ('0' + date.getMinutes()).slice(-2);
-  const seconds = ('0' + date.getSeconds()).slice(-2);
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
+/**
+ * Format a Date object as "YYYY-MM-DD HH:mm:ss"
+ * @param {Date} date 
+ * @returns {string}
+ */
+const formatDate = (date) => {
+  const pad = (n) => ('0' + n).slice(-2);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
 
-// Generate random planned start and end dates
-const now = new Date();
-const randomStartOffset = Math.floor(Math.random() * 60); // 0-59 minutes offset
-const plannedStartDate = new Date(now.getTime() + randomStartOffset * 60 * 1000);
-const randomDuration = Math.floor(Math.random() * 30) + 1; // 1-30 minutes duration
-const plannedEndDate = new Date(plannedStartDate.getTime() + randomDuration * 60 * 1000);
+/**
+ * Generates random planned start and end dates.
+ * @returns {{ plannedStartDate: string, plannedEndDate: string }}
+ */
+const generatePlannedDates = () => {
+  const now = new Date();
+  const randomStartOffset = Math.floor(Math.random() * 60); // 0-59 minutes offset
+  const plannedStart = new Date(now.getTime() + randomStartOffset * 60 * 1000);
+  const randomDuration = Math.floor(Math.random() * 30) + 1; // 1-30 minutes duration
+  const plannedEnd = new Date(plannedStart.getTime() + randomDuration * 60 * 1000);
+  return {
+    plannedStartDate: formatDate(plannedStart),
+    plannedEndDate: formatDate(plannedEnd),
+  };
+};
 
-// Get the current run time for randomizing descriptions
-const runTime = new Date().toISOString();
+/**
+ * Creates a new change request.
+ * @returns {Promise<string|null>} Returns the sys_id if successful, or null on failure.
+ */
+const createChangeRequest = async () => {
+  const { plannedStartDate, plannedEndDate } = generatePlannedDates();
+  const runTime = new Date().toISOString();
 
-async function createChangeRequest() {
-  // Define the payload for creating the change request
   const changeRequestData = {
     short_description: `Node.js Sample Change Request at ${runTime}`,
     description: `This change request was submitted via the Change Management API at ${runTime}.`,
@@ -44,46 +51,57 @@ async function createChangeRequest() {
     risk_and_impact: 'hello world',
     backout_plan: 'back out',
     test_plan: 'Tested',
-    planned_start_date: formatDate(plannedStartDate),
-    planned_end_date: formatDate(plannedEndDate)
+    planned_start_date: plannedStartDate,
+    planned_end_date: plannedEndDate,
   };
 
   try {
-    // Create the change request (POST)
     const response = await serviceNowClient.post('', changeRequestData);
-    console.log('Change Request created successfully:', response.data);
-    // Assuming the created record returns a sys_id in the response
-    return response.data.result.sys_id;
+    console.info('Change Request created successfully:', response.data);
+    // Return the sys_id from the created record (adjust the path if necessary)
+    return response.data.result.sys_id.value;
   } catch (error) {
     console.error('Error creating Change Request:', error.response ? error.response.data : error.message);
     return null;
   }
-}
+};
 
-async function submitChangeForApproval(sysId) {
-  console.log(sysId)
+/**
+ * Submits the change request for assessment by updating its state.
+ * @param {string} sysId 
+ * @param {number} stateValue - The state value to set (default is STATE_ASSESS from config)
+ * @returns {Promise<boolean>} Returns true if successful.
+ */
+const submitChangeForAssessment = async (sysId, stateValue = config.STATE_ASSESS) => {
   if (!sysId) {
-    console.error('No sys_id provided to submit for approval.');
-    return;
+    console.error('No sys_id provided to update state.');
+    return false;
   }
 
   try {
-    // Update the change request (PUT)
-    const response = await serviceNowClient.patch(`/${sysId}`, {
-      state: 0
-    });
-    console.log('Change Request submitted for approval:', response.data);
-    const response2 = await serviceNowClient.patch(`/${sysId}`, {
-      state: 2
-    });
-    console.log('Change Request submitted for approval:', response2.data);
+    const response = await serviceNowClient.patch(`/${sysId}`, { state: stateValue });
+    console.info(`Change Request transitioned to state ${stateValue}:`, response.data);
+    return true;
   } catch (error) {
-    console.error('Error submitting change for approval:', error.response ? error.response.data : error.message);
+    console.error('Error transitioning change state:', error.response ? error.response.data : error.message);
+    return false;
   }
-}
+};
 
-// Create the change request and then submit it for approval
-(async () => {
-  const sysId = await createChangeRequest();
-  await submitChangeForApproval(sysId.value);
-})();
+/**
+ * Main function to create a change request and then submit it for assessment.
+ */
+const main = async () => {
+  try {
+    const sysId = await createChangeRequest();
+    if (!sysId) {
+      console.error('Change request creation failed. Aborting.');
+      return;
+    }
+    await submitChangeForAssessment(sysId);
+  } catch (err) {
+    console.error('Unexpected error:', err);
+  }
+};
+
+main();
