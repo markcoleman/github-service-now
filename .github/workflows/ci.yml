@@ -49,8 +49,8 @@ jobs:
           output=$(node index.js "$OVERRIDE")
           echo "$output"
           # Extract the change URL from the output (must be echoed as "CHANGE_URL=...")
-          CHANGE_URL=$(echo "$output" | grep 'CHANGE_URL=' | cut -d'=' -f2)
-          echo "change_url=$CHANGE_URL" >> $GITHUB_OUTPUT
+          SYSID=$(echo "$output" | grep 'SYSID=' | cut -d'=' -f2)
+          echo "sysid=$SYSID" >> $GITHUB_OUTPUT
 
       - name: Post Comment with Change Request URL
         uses: peter-evans/create-or-update-comment@v3
@@ -60,4 +60,4 @@ jobs:
           body: |
             A new ServiceNow Change Request has been created.
             
-            View it [here](${{ steps.run_change.outputs.change_url }}).
+            View it [here](https://dev182150.service-now.com/change_request.do?sys_id=${{ steps.run_change.outputs.sysid }}).
