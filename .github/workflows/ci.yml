@@ -1,0 +1,30 @@
+name: Run Change Request App on PR
+
+on:
+  pull_request:
+
+jobs:
+  run-app:
+    runs-on: ubuntu-latest
+    env:
+      INSTANCE: ${{ vars.INSTANCE }}
+      SN_API_KEY: ${{ secrets.SN_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure Environment Variables
+        run: |
+          echo "INSTANCE=$INSTANCE" >> .env
+          echo "SN_API_KEY=$SN_API_KEY" >> .env
+
+      - name: Run Change Request Application
+        run: node submitChangeRequest.js
