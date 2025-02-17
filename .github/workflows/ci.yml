@@ -1,5 +1,9 @@
 name: Run Change Request App on PR
 
+permissions:
+  issues: write
+  pull-requests: write
+
 on:
   pull_request:
 
