@@ -6,7 +6,21 @@
 
 version: 2
 updates:
- - package-ecosystem: "devcontainers"
-   directory: "/"
-   schedule:
-     interval: weekly
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: weekly
+    assignees:
+      - markcoleman
+  - package-ecosystem: "npm"
+    directory: "/" # Location of your package.json file
+    schedule:
+      interval: "weekly"
+    assignees:
+      - markcoleman
+  - package-ecosystem: "github-actions"
+    directory: "/" # Location of your GitHub Actions workflows
+    schedule:
+      interval: "weekly"
+    assignees:
+      - markcoleman
